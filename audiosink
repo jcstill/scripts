@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Switch the default audio sink and move existing streams to new sink
+# Copyright (C) 2020, Jacob Still github.com/jcstill
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see https://www.gnu.org/licenses/
+
+INTERNAL="$(pacmd list-sinks | grep name: | grep alsa_output.pci-0000_00_1f.3.analog-stereo | awk '{print $2;}' | sed 's|[<>,]||g')"
+K3="$(pacmd list-sinks | grep name: | grep alsa_output.usb-FiiO_K3-00.analog-stereo | awk '{print $2;}' | sed 's|[<>,]||g')"
+KVM="$(pacmd list-sinks | grep name: | grep alsa_output.usb-VIA_Technologies_Inc._USB_Audio_Device-00.iec958-stereo | awk '{print $2;}' | sed 's|[<>,]||g')"
+HDMI="$(pacmd list-sinks | grep name: | grep alsa_output.pci-0000_01_00.1.hdmi-stereo-extra2 | awk '{print $2;}' | sed 's|[<>,]||g')"
+
+if [ "$1" == "k3" ]; then
+	if [ -z "$K3" ]; then
+#		echo "INTERNAL"
+		pactl set-default-sink $INTERNAL
+	else
+#		echo "K3"
+		pactl set-default-sink $K3
+	fi
+elif [ "$1" == "kvm" ]; then
+	if [ -z "$KVM" ]; then
+#		echo "INTERNAL"
+		pactl set-default-sink $INTERNAL
+	else
+#		echo "KVM"
+		pactl set-default-sink $KVM
+	fi
+elif [ "$1" == "hdmi" ]; then
+	if [ -z "$HDMI" ]; then
+#		echo "INTERNAL"
+		pactl set-default-sink $INTERNAL
+	else
+#		echo "HDMI"
+		pactl set-default-sink $HDMI
+	fi
+elif [ "$1" == "internal" ]; then
+#	echo "INTERNAL"
+	pactl set-default-sink $INTERNAL
+else
+#	echo "INTERNAL"
+	pactl set-default-sink $INTERNAL
+fi
+
+if [ -z "$2" ]; then
+	pactl list short sink-inputs|while read stream; do
+		SID=$(echo $stream|cut '-d ' -f1)
+#		echo "moving stream $SID"
+		pactl move-sink-input "$SID" "@DEFAULT_SINK@"
+	done
+fi

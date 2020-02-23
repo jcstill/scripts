@@ -1,0 +1,62 @@
+#!/bin/bash
+
+# Extract a wide range of compressed file types
+# Copyright (C) 2020, Jacob Still github.com/jcstill
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see https://www.gnu.org/licenses/
+
+for i; do
+	c=''
+	e=1
+	if [[ ! -r $i ]]; then
+		echo "$0: file is unreadable: \`$i'" >&2
+		continue
+	fi
+	case $i in
+#		*.t@(gz|lz|xz|b@(2|z?(2))|a@(z|r?(.@(Z|bz?(2)|gz|lzma|xz)))))
+#			c=(tar xvf);;
+		*.tar.bz2)
+			c=(tar xjf);;
+		*.tar.gz)
+			c=(tar xzf);;
+		*.tar)
+			c=(tar xf);;
+		*.tbz2)
+			c=(tar xjf);;
+		*.tgz)
+			c=(tar xzf);;
+		*.7z)
+			c=(7z x);;
+		*.Z)
+			c=(uncompress);;
+		*.bz2)
+			c=(bunzip2);;
+		*.exe)
+			c=(cabextract);;
+		*.gz)
+			c=(gunzip);;
+		*.rar)
+			c=(unrar x);;
+		*.xz)
+			c=(unxz);;
+		*.zip)
+			c=(unzip);;
+		*)
+			echo "$0: unrecognized file extension: \`$i'" >&2
+		continue;;
+	esac
+	command "${c[@]}" "$i"
+	((e = e || $?))
+done
+#return "$e"

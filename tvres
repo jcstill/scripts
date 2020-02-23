@@ -1,0 +1,29 @@
+#!/bin/bash
+
+# Change TV resolution
+# Copyright (C) 2020, Jacob Still github.com/jcstill
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see https://www.gnu.org/licenses/
+
+DP2="$(xrandr | grep DisplayPort | head -3 | tail -1 | awk '{print $2}')"
+
+if [ "$DP2" == "connected" ];then
+	if [ "$1" == "4k" ] || [ "$1" == "4K" ]; then
+		xrandr --output DisplayPort-2 --mode 3840x2160 --pos 3840x0 --rotate normal --scale 0.5x0.5
+	else
+		xrandr --output DisplayPort-2 --mode 1920x1080 --pos 3840x0 --rotate normal --scale 1.0x1.0
+	fi
+else
+	echo "$(xrandr | grep DisplayPort | head -3 | tail -1 | cut -c-26 )"
+fi

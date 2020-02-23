@@ -1,0 +1,6 @@
+#!/bin/bash
+# Simple quick calculator (from arch wiki)
+# Usage:
+#	calc 4+2.6
+
+echo "scale=3;$@" | bc -l
