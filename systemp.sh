@@ -31,9 +31,10 @@ if ! [[ $LOC =~ $re ]] ; then
 fi
 # Get CPU core temps and avg them
 CPUAVG=0
-for i in {2..9}; do
-	NUM="$(cat /sys/class/hwmon/hwmon"$LOC"/temp"$i"_input)" #individual core temps
-	CPUAVG=$((CPUAVG + NUM))
+for i in {2..100}; do
+	[ -r /sys/class/hwmon/hwmon"$LOC"/temp"$i"_input ] && \
+	NUM="$(cat /sys/class/hwmon/hwmon"$LOC"/temp"$i"_input)" && \
+	CPUAVG=$((CPUAVG + NUM)) #individual core temps
 done
 CPUAVG="$(bc <<< "scale = 1; $CPUAVG / 8 / 1000")"
 CPUAVG="$(bc <<< "scale = 1; ($CPUAVG * 1.8) + 32")" # Convert to freedom units

@@ -29,7 +29,7 @@ case "$S" in
 		;;
 	"Sleep"|"sleep"|"S"|"s")
 		#echo "$S"
-		~/.config/i3lock-modified/timeoutcontrol.sh
+		~/.config/i3lock-modified/timeoutcontrol.sh &
 		sleep 2s
 		systemctl suspend
 		;;
