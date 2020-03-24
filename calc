@@ -1,6 +1,49 @@
 #!/bin/bash
-# Simple quick calculator (from arch wiki)
-# Usage:
-#	calc 4+2.6
 
-echo "scale=3;$@" | bc -l
+# Calculator based originaly on the example from the arch wiki
+# Copyright (C) 2020, Jacob Still github.com/jcstill
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see https://www.gnu.org/licenses/
+
+if [ "$1" == "--resistor-parallel" ] || [ "$1" == "-rp" ] || [ "$1" == "--inductor-parallel" ] || [ "$1" == "-ip" ] || [ "$1" == "--capacitor-series" ] || [ "$1" == "-cs" ] || [ "$1" == "--fill" ] || [ "$1" == "--work" ];then
+	RESISTOR=parallel
+	shift
+elif [ "$1" == "--resistor-series" ] || [ "$1" == "-rs" ] || [ "$1" == "--inductor-series" ] || [ "$1" == "-is" ] || [ "$1" == "--capacitor-parallel" ] || [ "$1" == "-cp" ];then
+	RESISTOR=series
+	shift
+fi
+
+if [ -n "$RESISTOR" ] && [ "$RESISTOR" == "parallel" ];then
+	inputnum=0
+	for last; do inputnum=$((inputnum + 1)); done
+	inputs=( "$@" )
+	total=0
+	for (( c=0; c<$inputnum; c++ ));do
+		total="$(bc <<< "scale=20; $total+(1/${inputs[$c]})")"
+	done
+	res="$(bc <<< "scale=5; 1/$total")"
+	echo $res
+elif [ -n "$RESISTOR" ] && [ "$RESISTOR" == "series" ];then
+	iputnum=0
+	for last; do inputnum=$((inputnum + 1)); done
+	inputs=( "$@" )
+	total=0
+	for (( c=0; c<$inputnum; c++ ));do
+		total="$(bc <<< "scale=20; $total+${inputs[$c]}")"
+	done
+	res="$(bc <<< "scale=5; $total+0")"
+        echo $res
+else
+	echo "$(bc <<< "scale=5; $@")"
+fi
