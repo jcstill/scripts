@@ -22,9 +22,23 @@ if [ "$1" == "--resistor-parallel" ] || [ "$1" == "-rp" ] || [ "$1" == "--induct
 elif [ "$1" == "--resistor-series" ] || [ "$1" == "-rs" ] || [ "$1" == "--inductor-series" ] || [ "$1" == "-is" ] || [ "$1" == "--capacitor-parallel" ] || [ "$1" == "-cp" ];then
 	RESISTOR=series
 	shift
+elif [ "$1" == "-cf" ];then
+	TEMP=celcius
+	shift
+elif [ "$1" == "-fc" ];then
+        TEMP=freedom
+	shift
 fi
 
-if [ -n "$RESISTOR" ] && [ "$RESISTOR" == "parallel" ];then
+if [ -n "$TEMP" ] && [ "$TEMP" == "celcius" ];then
+	res="$(bc <<< "scale=5; $1*1.80000")"
+	tmp="$(bc <<< "scale=5; $res+32.00000")"
+	echo $tmp
+elif [ -n "$TEMP" ] && [ "$TEMP" == "freedom" ];then
+	res="$(bc <<< "scale=5; $1-32.00000")"
+	tmp="$(bc <<< "scale=5; $res/1.80000")"
+	echo $tmp
+elif [ -n "$RESISTOR" ] && [ "$RESISTOR" == "parallel" ];then
 	inputnum=0
 	for last; do inputnum=$((inputnum + 1)); done
 	inputs=( "$@" )

@@ -1,0 +1,31 @@
+#!/bin/bash
+
+# Easy way to quickly encrypt or decrypt files
+# Copyright (C) 2020, Jacob Still github.com/jcstill
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see https://www.gnu.org/licenses/
+
+if [ -z $1 ] || [ -z $2 ];then
+	echo "Usage: crypt [encrypt|decrypt] <FILENAME>"
+else
+	if [ "$1" == "e" ] || [ "$1" == "en" ]|| [ "$1" == "encrypt" ] || [ "$1" == "-e" ] || [ "$1" == "-en" ]|| [ "$1" == "-encrypt" ] || [ "$1" == "--e" ] || [ "$1" == "--en" ]|| [ "$1" == "--encrypt" ];then
+		echo "Encrypting..."
+		gpg --cipher-algo AES256 --symmetric $2
+	elif [ "$1" == "d" ] || [ "$1" == "de" ]|| [ "$1" == "decrypt" ] || [ "$1" == "-d" ] || [ "$1" == "-de" ]|| [ "$1" == "-decrypt" ] || [ "$1" == "--d" ] || [ "$1" == "--de" ]|| [ "$1" == "--decrypt" ];then
+		echo "Decrypting..."
+		OUTFILE="$(echo $2 | rev | cut -c 5- | rev)"
+		gpg --output $OUTFILE --decrypt $2
+	fi
+fi
+

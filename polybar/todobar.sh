@@ -16,8 +16,18 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-TASKS="$(todo | head -1 | awk '{print $3}')"
-if [ "$TASKS" == "left" ];then
-	TASKS="0"
+NUM="$(todo -n | head -1 | awk '{print $3}')"
+TASK="$(todo -n | grep Today | head -1 | cut -c5-)"
+if [ ! -z "$TASK" ];then
+	echo "Todo [$NUM]: $TASK"
+	exit
 fi
-echo "Todo: $TASKS"
+TASK="$(todo -n | grep Tomorrow | head -1 | cut -c5-)"
+if [ ! -z "$TASK" ];then
+	echo "Todo [$NUM]: $TASK"
+	exit
+fi
+if [ "$NUM" == "left" ];then
+	NUM="0"
+fi
+echo "Todo [$NUM]"

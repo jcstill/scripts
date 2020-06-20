@@ -21,36 +21,47 @@ K3="$(pacmd list-sinks | grep name: | grep alsa_output.usb-FiiO_K3-00.analog-ste
 KVM="$(pacmd list-sinks | grep name: | grep alsa_output.usb-VIA_Technologies_Inc._USB_Audio_Device-00.iec958-stereo | awk '{print $2;}' | sed 's|[<>,]||g')"
 HDMITV="$(pacmd list-sinks | grep name: | grep alsa_output.pci-0000_01_00.1.hdmi-stereo-extra2 | awk '{print $2;}' | sed 's|[<>,]||g')"
 HDMIPC="$(pacmd list-sinks | grep name: | grep alsa_output.pci-0000_01_00.1.hdmi-stereo-extra4 | awk '{print $2;}' | sed 's|[<>,]||g')"
+SINKS="$(pacmd list-sinks | grep name:)"
+CURRENT="$(pacmd list-sinks | grep 'index:\|name:' | grep '*' -A 1 | tail -1 | awk '{print $2;}' | sed 's|[<>,]||g')"
 
-if [ "$1" == "k3" ]; then
+if [ "$1" == "current" ]; then
+	echo "$CURRENT"
+	exit 0
+elif [ "$1" == "listall" ]; then
+	echo "$SINKS"
+	exit 0
+elif [ "$1" == "k3" ]; then
 	if [ -z "$K3" ]; then
-#		echo "INTERNAL"
+		echo "$K3 not found"
+		echo "Setting to internal"
 		pactl set-default-sink $INTERNAL
 	else
-#		echo "K3"
+		echo "Setting to K3"
 		pactl set-default-sink $K3
 	fi
 elif [ "$1" == "kvm" ]; then
 	if [ -z "$KVM" ]; then
-#		echo "INTERNAL"
+		echo "$KVM not found"
+		echo "Setting to internal"
 		pactl set-default-sink $INTERNAL
 	else
-#		echo "KVM"
+		echo "Setting to KVM"
 		pactl set-default-sink $KVM
 	fi
 elif [ "$1" == "hdmi" ]; then
 	if [ -n "$HDMITV" ] && [ "$HDMITV" != "" ]; then
-#		echo "TV HDMI"
+		echo "Setting to TV HDMI"
 		pactl set-default-sink $HDMITV
 	elif [ -n "$HDMIPC" ] && [ "$HDMIPC" != "" ]; then
-#		echo "PC HDMI"
+		echo "Setting to PC HDMI"
 		pactl set-default-sink $HDMIPC
 	else
-#		echo "INTERNAL"
+		echo "No HDMI found"
+		echo "Setting to internal"
 		pactl set-default-sink $INTERNAL
 	fi
 elif [ "$1" == "internal" ]; then
-#	echo "INTERNAL"
+	echo "Setting to INTERNAL"
 	pactl set-default-sink $INTERNAL
 else
 	echo "Setting default sink to internal"
@@ -58,9 +69,18 @@ else
 fi
 
 if [ -z "$2" ]; then
-	pactl list short sink-inputs|while read stream; do
-		SID=$(echo $stream|cut '-d ' -f1)
-#		echo "moving stream $SID"
+	pactl list sink-inputs|grep "Sink Input\|application.name"|tr '\n\r#"' ' '|awk '{print $3 ": " $6}'|while read stream;do
+		SID="$(echo $stream|awk '{print $1}'|tr -d ':')"
+		echo "moving stream $stream"
 		pactl move-sink-input "$SID" "@DEFAULT_SINK@"
 	done
+#	pactl list short sink-inputs|while read stream; do
+#		SID=$(echo $stream|cut '-d ' -f1)
+#		echo "moving stream $SID"
+#		pactl move-sink-input "$SID" "@DEFAULT_SINK@"
+#	done
 fi
+exit
+
+
+
