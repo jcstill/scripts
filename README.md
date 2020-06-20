@@ -6,15 +6,21 @@ audiosink
 
 calc
 
+crypt
+
 ec
 
 extract
 
 ipinfo
 
+macgen
+
 mousewake
 
 net-rec
+
+setupdisplay
 
 tvres
 
@@ -34,8 +40,6 @@ mem.sh
 mousepower.sh
 
 powermenu.sh
-
-setupdisplay.sh
 
 **systemp.sh**
 
