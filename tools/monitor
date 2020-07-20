@@ -1,0 +1,212 @@
+#!/bin/bash
+
+# Combination of all the individual scripts I had to deal with displays
+# Copyright (C) 2020, Jacob Still github.com/jcstill
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see https://www.gnu.org/licenses/
+
+# There is probaly a bunch of code that is reused in this that i could make into functions, but I dont feel like it
+
+CONFIGFILE=~/.config/monitor/config
+usage() {
+	printf "usage: monitor [OPTION] [arguments...]\n\n"
+	printf "Options:\n"
+	printf "  -c, --configure               Setup monitors. Arguments: [all,auto,(preset in config)]\n"
+	printf "  -s, --show                    Show Resolution of monitors. Arguments: [short,<number>]\n"
+	printf "  -r, --resolution              Change resolution and scale. Arguments: <DISP> <RES> <SCALE>\n"
+	printf "  -b, --brightness    UNDER CONSTRUCTION    Change brightness for displays that support i2c coms\n"
+	printf "  -h, --help                    Show this help text\n\n"
+	printf "Config File: $CONFIGFILE\n\n"
+	printf "Examples:\n"
+	printf "  monitor -c all                  - Configure displays according to what is connected\n"
+	printf "  monitor -c <preset>             - Configure displays according to presets in the config file\n"
+	printf "  monitor -s                      - Shows the resolution of all displays\n"
+	printf "  monitor -s s                    - Shows the short resolution of all displays\n"
+	printf "  monitor -s 2                    - Shows the resolution of display 2\n"
+	printf "  monitor -s 2 s                  - Shows the short resolution of display 2\n"
+	printf "  monitor -r 2 1920x1080 1.0x1.0  - Sets display #2 to 1920x1080 at scale 1.0x1.0\n"
+	exit
+}
+
+if [ ! -f $CONFIGFILE ];then
+	TYPE="$(xrandr|grep "primary"|tr '-' ' '|awk '{print $1}')"
+	OUTPUTNUM="$(xrandr|grep $TYPE|wc -l)"
+	printf "# This file is for configuring monitor\n\nTYPE=$TYPE\n\nAuto Detect:\n----------------------\n" > $CONFIGFILE
+	for (( c=0; c<$OUTPUTNUM; c++ ));do
+		t=$((c + 1))
+		if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+			SPECS="$(xrandr|grep $TYPE|head -$t|tail -1|sed 's/primary//'|awk '{print $3}'|tr 'x+' ' ')"
+			RES="$(echo $SPECS|awk '{print $1 "x" $2}')"
+			POS="$(echo $SPECS|awk '{print $3 "x" $4}')"
+			y[$c]=" --output $TYPE-$c --mode $RES --pos $POS --rotate normal --scale 1.0x1.0"
+			if [ ! -z "$(xrandr|grep $TYPE|head -$t|tail -1|grep primary)" ];then
+				y[$c]="${y[$c]} --primary"
+			fi
+		else
+			y[$c]=" --output $TYPE-$c --off"
+		fi
+		printf "$TYPE-$c: ${y[$c]}\n" >> $CONFIGFILE
+	done
+	printf "\nPresets\n----------------------\n" >> $CONFIGFILE
+else
+	TYPE="$(cat $CONFIGFILE|grep 'TYPE'|cut -c6-)"
+	OUTPUTNUM="$(xrandr|grep $TYPE|wc -l)"
+fi
+
+if [ "$1" == "--configure" ] || [ "$1" == "-c" ] || [ "$1" == "--config" ];then
+	# Turn On and Off monitors acording to what is connected and powered or a preset in $CONFIGFILE
+	if [ ! -z $2 ];then
+		MODE="$(cat $CONFIGFILE|grep $2)"
+		COMMAND="xrandr"
+		if [ ! -z "$MODE" ];then
+			MODE="$(tr '[:lower:]' '[:upper:]' <<< ${2:0:1})${2:1}"
+			printf "$MODE Mode\n"
+			for (( c=0; c<$OUTPUTNUM; c++ ));do
+				t=$((c + 1))
+				if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+					CUT=$((${#TYPE} + 6))
+					DP[$c]="$(cat $CONFIGFILE|grep -A 4 $2|grep $TYPE-$c|head -1|cut -c$CUT-)"
+				else
+					DP[$c]="--output $TYPE-$c --off"
+				fi
+				printf "$TYPE-$c\n"
+				COMMAND="${COMMAND} ${DP[$c]}"
+			done
+			$COMMAND
+			if [ "$3" != "nopolybar" ] || [ -z "$3" ];then
+				printf "Restarting polybar\n"
+				~/.config/polybar/launch.sh >> /dev/null 2>&1 &
+			fi
+		elif [ "$2" == "auto" ] || [ "$2" == "all" ];then
+			printf "Automatic Mode\n"
+			for (( c=0; c<$OUTPUTNUM; c++ ));do
+				t=$((c + 1))
+				if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+					CUT=$((${#TYPE} + 6))
+					DP[$c]="$(cat $CONFIGFILE|grep $TYPE-$c|head -1|cut -c$CUT-)"
+				else
+					DP[$c]="--output $TYPE-$c --off"
+				fi
+				printf "$TYPE-$c\n"
+				COMMAND="${COMMAND} ${DP[$c]}"
+			done
+			$COMMAND
+			if [ "$3" != "nopolybar" ] || [ -z "$3" ];then
+				printf "Restarting polybar\n"
+				~/.config/polybar/launch.sh >> /dev/null 2>&1 &
+			fi
+		else
+			printf "$2 not a valid preset\n"
+		fi
+	else
+		usage
+	fi
+elif [ "$1" == "--show" ] || [ "$1" == "-s" ];then
+	# Show the resolution of an individual monitor or all monitors
+	if [ "$2" == "s" ] || [ "$2" == "short" ] || [ -z "$2" ];then
+		for (( c=0; c<$OUTPUTNUM; c++ ));do
+			t=$((c + 1))
+			if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				RES="$(xrandr|grep "*\|DisplayPort"|grep $TYPE-$c -A 1|grep "*"|awk '{print $1}')"
+				if [ "$2" == "short" ] || [ "$2" == "s" ];then
+					if [ "$RES" == "640x480" ]; then
+						RES="480p"
+					elif [ "$RES" == "1280x720" ]; then
+						RES="720p"
+					elif [ "$RES" == "1920x1080" ]; then
+						RES="1080p"
+					elif [ "$RES" == "2560x1440" ]; then
+						RES="1440p"
+					elif [ "$RES" == "3840x2160" ]; then
+						RES="2160p"
+					fi
+				fi
+				DP[$c]=$RES
+			else
+				DP[$c]="off"
+			fi
+			printf "$TYPE-$c: ${DP[$c]}\n"
+		done
+	elif [ ! -z "${2##*[!0-9]*}" ];then
+		if [ "$2" -lt "$OUTPUTNUM" ];then
+			t=$(($2 + 1))
+			if [ "$(xrandr|grep $TYPE-$2|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				RES="$(xrandr|grep "*\|DisplayPort"|grep $TYPE-$2 -A 1|grep "*"|awk '{print $1}')"
+			else
+				RES="off"
+			fi
+			if [ "$3" == "short" ] || [ "$3" == "s" ];then
+				if [ "$RES" == "640x480" ]; then
+					RES="480p"
+				elif [ "$RES" == "1280x720" ]; then
+					RES="720p"
+				elif [ "$RES" == "1920x1080" ]; then
+					RES="1080p"
+				elif [ "$RES" == "2560x1440" ]; then
+					RES="1440p"
+				elif [ "$RES" == "3840x2160" ]; then
+					RES="2160p"
+				fi
+			fi
+			printf "$RES\n"
+		elif [ "$2" -ge "$OUTPUTNUM" ];then
+			printf "$2 not a valid display\n"
+		fi
+	else
+		usage
+	fi
+elif [ "$1" == "--resolution" ] || [ "$1" == "-r" ];then
+	if [ ! -z "${2##*[!0-9]*}" ];then
+		if [ "$2" -lt "$OUTPUTNUM" ];then
+			t=$(($2 + 1))
+			if [ "$(xrandr|grep $TYPE-$2|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				if [ ! -z "$(xrandr|tr '\r\n' ' '|tr '-' '\n'|grep $TYPE-$2|grep $3)" ];then
+					xrandr --output $TYPE-$2 --mode $3 --rotate normal --scale $4
+				else
+					printf "$3 is an invalid resolution for display $2\n"
+				fi
+			else
+				printf "$2 is off\n"
+			fi
+		elif [ "$2" -ge "$OUTPUTNUM" ];then
+			printf "$2 not a valid display\n"
+		fi
+	else
+		usage
+	fi
+elif [ "$1" == "--brightness" ] || [ "$1" == "-b" ];then
+	if [ ! -z "${2##*[!0-9]*}" ];then
+		if [ "$2" -lt "$OUTPUTNUM" ];then
+			t=$(($2 + 1))
+			if [ "$(xrandr|grep $TYPE-$2|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				sudo ddcutil -d $t setvcp 10 $3
+				sudo ddcutil -d $t setvcp 12 $3
+			else
+				printf "$2 is off\n"
+			fi
+		elif [ "$2" -ge "$OUTPUTNUM" ];then
+			printf "$2 not a valid display\n"
+		fi
+	else
+		usage
+	fi
+else
+	usage
+fi
+exit
+
+
+
+
+

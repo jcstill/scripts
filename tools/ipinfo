@@ -16,7 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-if [ "$1" != "" ]; then
+if [ "$1" == "-h" ] || [ "$1" == "--help" ];then
+	echo "Usage: ipinfo <DOMAIN>"
+	exit 1
+elif [ "$1" != "" ]; then
 	if grep -P "(([1-9]\d{0,2})\.){3}(?2)" <<< "$1"; then
 		curl -s https://ipinfo.io/"$1" | sed 's/\"//g'
 	else

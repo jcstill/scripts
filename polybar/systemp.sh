@@ -54,7 +54,7 @@ fi
 AMDGPU="$(cat /sys/class/hwmon/hwmon"$LOC"/temp1_input)" #amdgpu temp
 OUTPUT=""
 # Check that GPU is below mfr rated temp else warn user
-if [[ $AMDGPU -gt 89000 ]]; then
+if [[ $AMDGPU -gt 95000 ]]; then
 	AMDGPU="$(bc <<< "scale = 1; $AMDGPU / 1000")"
 	AMDGPU="$(bc <<< "scale = 1; ($AMDGPU * 1.8) + 32")" # Convert to freedom units
 	OUTPUT="GPU: $AMDGPU°F!!!"
