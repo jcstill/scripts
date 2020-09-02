@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-CPU="$(top -b -n2 -d 0.5 -p 1 | grep "Cpu(s)" | tail -1 | awk '{print $8}')"
+CPU="$(top -b -n2 -d 0.5 -p 1|grep "Cpu(s)"|tail -1|awk '{print $8}')"
 CPU="$(bc <<< "scale = 1; 100 - $CPU")"
 
 echo "CPU: $CPU%"

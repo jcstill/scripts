@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-MEM="$(free | grep Mem | awk '{print $3}')"
+MEM="$(free|grep Mem|awk '{print $3}')"
 MEM="$(bc <<< "scale = 2; $MEM/1000000")"
 
 echo "RAM: $MEM GB"

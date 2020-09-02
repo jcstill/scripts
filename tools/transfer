@@ -3,18 +3,21 @@
 # Modified script from transfer.sh
 
 if [ $# -eq 0 ]; then
-	echo -e "No arguments specified. Usage:\necho transfer /tmp/test.md\ncat /tmp/test.md | transfer test.md"
+	echo -e "No arguments specified. Usage:\necho transfer /tmp/test.md\ncat /tmp/test.md|transfer test.md"
 	exit 1
 fi
 tmpfile=$(mktemp -t transferXXX)
 if tty -s; then
-	basefile=$(basename "$1" | sed -e 's/[^a-zA-Z0-9._-]//g')
+	basefile=$(basename "$1"|sed -e 's/[^a-zA-Z0-9._-]//g')
 	echo -n "uploading... "
-	curl -sS --upload-file "$1" "https://transfer.sh/$basefile" >> $tmpfile
+	curl -sS --upload-file "$1" "https://transfer.sh/$basefile" >> "$tmpfile"
 else
 	echo -n "error"
 #	curl --upload-file "-" "https://transfer.sh/$1" >> $tmpfile
 fi
-cat $tmpfile
-rm -rf $tmpfile
+cat "$tmpfile"
+rm -rf "$tmpfile"
 echo
+
+
+# cat $1 | curl -F 'f:1=<-' jcstill:B8c7AgMCWCEK@ix.io

@@ -27,60 +27,62 @@ usage() {
 	printf "  -r, --resolution              Change resolution and scale. Arguments: <DISP> <RES> <SCALE>\n"
 	printf "  -b, --brightness    UNDER CONSTRUCTION    Change brightness for displays that support i2c coms\n"
 	printf "  -h, --help                    Show this help text\n\n"
-	printf "Config File: $CONFIGFILE\n\n"
+	printf "Config File: %s\n\n" "$CONFIGFILE"
 	printf "Examples:\n"
 	printf "  monitor -c all                  - Configure displays according to what is connected\n"
 	printf "  monitor -c <preset>             - Configure displays according to presets in the config file\n"
 	printf "  monitor -s                      - Shows the resolution of all displays\n"
 	printf "  monitor -s s                    - Shows the short resolution of all displays\n"
-	printf "  monitor -s 2                    - Shows the resolution of display 2\n"
-	printf "  monitor -s 2 s                  - Shows the short resolution of display 2\n"
+	printf "  monitor -s 2                    - Shows the resolution of display #2\n"
+	printf "  monitor -s 2 s                  - Shows the short resolution of display #2\n"
 	printf "  monitor -r 2 1920x1080 1.0x1.0  - Sets display #2 to 1920x1080 at scale 1.0x1.0\n"
+	printf "  monitor -b 1 100                - Set display #1's brightness and contrast to 100\n"
+	printf "  monitor -b a 100                - Set all display's brightness and contrast to 100\n"
 	exit
 }
 
 if [ ! -f $CONFIGFILE ];then
 	TYPE="$(xrandr|grep "primary"|tr '-' ' '|awk '{print $1}')"
-	OUTPUTNUM="$(xrandr|grep $TYPE|wc -l)"
-	printf "# This file is for configuring monitor\n\nTYPE=$TYPE\n\nAuto Detect:\n----------------------\n" > $CONFIGFILE
-	for (( c=0; c<$OUTPUTNUM; c++ ));do
+	OUTPUTNUM="$(xrandr|grep -c "$TYPE")"
+	printf "# This file is for configuring monitor\n\nTYPE=%s\n\nAuto Detect:\n----------------------\n" "$TYPE" > $CONFIGFILE
+	for (( c=0; c<OUTPUTNUM; c++ ));do
 		t=$((c + 1))
-		if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
-			SPECS="$(xrandr|grep $TYPE|head -$t|tail -1|sed 's/primary//'|awk '{print $3}'|tr 'x+' ' ')"
-			RES="$(echo $SPECS|awk '{print $1 "x" $2}')"
-			POS="$(echo $SPECS|awk '{print $3 "x" $4}')"
+		if [ "$(xrandr|grep "$TYPE"|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+			SPECS="$(xrandr|grep "$TYPE"|head -$t|tail -1|sed 's/primary//'|awk '{print $3}'|tr 'x+' ' ')"
+			RES="$(echo "$SPECS"|awk '{print $1 "x" $2}')"
+			POS="$(echo "$SPECS"|awk '{print $3 "x" $4}')"
 			y[$c]=" --output $TYPE-$c --mode $RES --pos $POS --rotate normal --scale 1.0x1.0"
-			if [ ! -z "$(xrandr|grep $TYPE|head -$t|tail -1|grep primary)" ];then
+			if xrandr|grep "$TYPE"|head -$t|tail -1|grep -q primary;then
 				y[$c]="${y[$c]} --primary"
 			fi
 		else
 			y[$c]=" --output $TYPE-$c --off"
 		fi
-		printf "$TYPE-$c: ${y[$c]}\n" >> $CONFIGFILE
+		printf "%s-%s: %s\n" "$TYPE" "$c" "${y[$c]}" >> $CONFIGFILE
 	done
 	printf "\nPresets\n----------------------\n" >> $CONFIGFILE
 else
-	TYPE="$(cat $CONFIGFILE|grep 'TYPE'|cut -c6-)"
-	OUTPUTNUM="$(xrandr|grep $TYPE|wc -l)"
+	TYPE="$(grep 'TYPE' < $CONFIGFILE|cut -c6-)"
+	OUTPUTNUM="$(xrandr|grep -c "$TYPE")"
 fi
 
 if [ "$1" == "--configure" ] || [ "$1" == "-c" ] || [ "$1" == "--config" ];then
 	# Turn On and Off monitors acording to what is connected and powered or a preset in $CONFIGFILE
-	if [ ! -z $2 ];then
-		MODE="$(cat $CONFIGFILE|grep $2)"
+	if [ -n "$2" ];then
+		MODE="$(grep "$2" < $CONFIGFILE)"
 		COMMAND="xrandr"
-		if [ ! -z "$MODE" ];then
-			MODE="$(tr '[:lower:]' '[:upper:]' <<< ${2:0:1})${2:1}"
-			printf "$MODE Mode\n"
-			for (( c=0; c<$OUTPUTNUM; c++ ));do
+		if [ -n "$MODE" ];then
+			MODE="$(tr '[:lower:]' '[:upper:]' <<< "${2:0:1}")${2:1}"
+			printf "%s Mode\n" "$MODE"
+			for (( c=0; c<OUTPUTNUM; c++ ));do
 				t=$((c + 1))
-				if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				if [ "$(xrandr|grep "$TYPE"|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
 					CUT=$((${#TYPE} + 6))
-					DP[$c]="$(cat $CONFIGFILE|grep -A 4 $2|grep $TYPE-$c|head -1|cut -c$CUT-)"
+					DP[$c]="$(grep -A 4 "$2" < $CONFIGFILE|grep "$TYPE-$c"|head -1|cut -c$CUT-)"
 				else
 					DP[$c]="--output $TYPE-$c --off"
 				fi
-				printf "$TYPE-$c\n"
+				printf "%s-%s\n" "$TYPE" "$c"
 				COMMAND="${COMMAND} ${DP[$c]}"
 			done
 			$COMMAND
@@ -90,15 +92,15 @@ if [ "$1" == "--configure" ] || [ "$1" == "-c" ] || [ "$1" == "--config" ];then
 			fi
 		elif [ "$2" == "auto" ] || [ "$2" == "all" ];then
 			printf "Automatic Mode\n"
-			for (( c=0; c<$OUTPUTNUM; c++ ));do
+			for (( c=0; c<OUTPUTNUM; c++ ));do
 				t=$((c + 1))
-				if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				if [ "$(xrandr|grep "$TYPE"|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
 					CUT=$((${#TYPE} + 6))
-					DP[$c]="$(cat $CONFIGFILE|grep $TYPE-$c|head -1|cut -c$CUT-)"
+					DP[$c]="$(grep "$TYPE-$c" < $CONFIGFILE|head -1|cut -c$CUT-)"
 				else
 					DP[$c]="--output $TYPE-$c --off"
 				fi
-				printf "$TYPE-$c\n"
+				printf "%s-%s\n" "$TYPE" "$c"
 				COMMAND="${COMMAND} ${DP[$c]}"
 			done
 			$COMMAND
@@ -107,7 +109,7 @@ if [ "$1" == "--configure" ] || [ "$1" == "-c" ] || [ "$1" == "--config" ];then
 				~/.config/polybar/launch.sh >> /dev/null 2>&1 &
 			fi
 		else
-			printf "$2 not a valid preset\n"
+			printf "%s not a valid preset\n" "$2"
 		fi
 	else
 		usage
@@ -115,10 +117,10 @@ if [ "$1" == "--configure" ] || [ "$1" == "-c" ] || [ "$1" == "--config" ];then
 elif [ "$1" == "--show" ] || [ "$1" == "-s" ];then
 	# Show the resolution of an individual monitor or all monitors
 	if [ "$2" == "s" ] || [ "$2" == "short" ] || [ -z "$2" ];then
-		for (( c=0; c<$OUTPUTNUM; c++ ));do
+		for (( c=0; c<OUTPUTNUM; c++ ));do
 			t=$((c + 1))
-			if [ "$(xrandr|grep $TYPE|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
-				RES="$(xrandr|grep "*\|DisplayPort"|grep $TYPE-$c -A 1|grep "*"|awk '{print $1}')"
+			if [ "$(xrandr|grep "$TYPE"|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				RES="$(xrandr|grep '[*]\|DisplayPort'|grep "$TYPE-$c" -A 1|grep '[*]'|awk '{print $1}')"
 				if [ "$2" == "short" ] || [ "$2" == "s" ];then
 					if [ "$RES" == "640x480" ]; then
 						RES="480p"
@@ -136,13 +138,13 @@ elif [ "$1" == "--show" ] || [ "$1" == "-s" ];then
 			else
 				DP[$c]="off"
 			fi
-			printf "$TYPE-$c: ${DP[$c]}\n"
+			printf "%s-%s: %s\n" "$TYPE" "$c" "${DP[$c]}"
 		done
-	elif [ ! -z "${2##*[!0-9]*}" ];then
+	elif [ -n "${2##*[!0-9]*}" ];then
 		if [ "$2" -lt "$OUTPUTNUM" ];then
 			t=$(($2 + 1))
-			if [ "$(xrandr|grep $TYPE-$2|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
-				RES="$(xrandr|grep "*\|DisplayPort"|grep $TYPE-$2 -A 1|grep "*"|awk '{print $1}')"
+			if [ "$(xrandr|grep "$TYPE-$2"|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				RES="$(xrandr|grep '[*]\|DisplayPort'|grep -A 1 -- "$TYPE-$2"|grep '[*]'|awk '{print $1}')"
 			else
 				RES="off"
 			fi
@@ -159,44 +161,45 @@ elif [ "$1" == "--show" ] || [ "$1" == "-s" ];then
 					RES="2160p"
 				fi
 			fi
-			printf "$RES\n"
+			printf "%s\n" "$RES"
 		elif [ "$2" -ge "$OUTPUTNUM" ];then
-			printf "$2 not a valid display\n"
+			printf "%s not a valid display\n" "$2"
 		fi
 	else
 		usage
 	fi
 elif [ "$1" == "--resolution" ] || [ "$1" == "-r" ];then
-	if [ ! -z "${2##*[!0-9]*}" ];then
+	if [ -n "${2##*[!0-9]*}" ];then
 		if [ "$2" -lt "$OUTPUTNUM" ];then
 			t=$(($2 + 1))
-			if [ "$(xrandr|grep $TYPE-$2|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
-				if [ ! -z "$(xrandr|tr '\r\n' ' '|tr '-' '\n'|grep $TYPE-$2|grep $3)" ];then
-					xrandr --output $TYPE-$2 --mode $3 --rotate normal --scale $4
+			if [ "$(xrandr|grep "$TYPE-$2"|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				if xrandr|tr '\r\n' ' '|tr '-' '\n'|grep "$TYPE-$2"|grep -q "$3";then
+					xrandr --output "$TYPE-$2" --mode "$3" --rotate normal --scale "$4"
 				else
-					printf "$3 is an invalid resolution for display $2\n"
+					printf "%s is an invalid resolution for display %s\n" "$3" "$2"
 				fi
 			else
-				printf "$2 is off\n"
+				printf "%s is off\n" "$2"
 			fi
 		elif [ "$2" -ge "$OUTPUTNUM" ];then
-			printf "$2 not a valid display\n"
+			printf "%s not a valid display\n" "$2"
 		fi
 	else
 		usage
 	fi
 elif [ "$1" == "--brightness" ] || [ "$1" == "-b" ];then
-	if [ ! -z "${2##*[!0-9]*}" ];then
+	echo "Careful. this is experemental!"
+	if [ -n "${2##*[!0-9]*}" ] && [ -n "$3" ];then
 		if [ "$2" -lt "$OUTPUTNUM" ];then
 			t=$(($2 + 1))
 			if [ "$(xrandr|grep $TYPE-$2|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
 				sudo ddcutil -d $t setvcp 10 $3
 				sudo ddcutil -d $t setvcp 12 $3
 			else
-				printf "$2 is off\n"
+				printf "%s is off\n" "$2"
 			fi
 		elif [ "$2" -ge "$OUTPUTNUM" ];then
-			printf "$2 not a valid display\n"
+			printf "%s not a valid display\n" "$2"
 		fi
 	else
 		usage

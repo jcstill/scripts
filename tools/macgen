@@ -1,2 +1,2 @@
 #!/bin/bash
-printf '%02X:%s\n' "$(( $(printf '%d\n' $((16#$(openssl rand -hex 1)))) & 254 ))" "$(openssl rand -hex 5 | sed 's/\(..\)/\1:/g; s/:$//')" | sed -e 's/\(.*\)/\U\1/'
+printf '%02X:%s\n' "$(( $(printf '%d\n' $((16#$(openssl rand -hex 1)))) & 254 ))" "$(openssl rand -hex 5|sed 's/\(..\)/\1:/g; s/:$//')"|sed -e 's/\(.*\)/\U\1/'

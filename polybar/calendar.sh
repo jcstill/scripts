@@ -22,7 +22,7 @@ date=$(date '+%a, %d. %B')
 year=$(date '+%Y')
 month=$(date '+%m')
 
-ncal -hb $month $year \
+ncal -hb "$month" "$year" \
 | sed 's/\x1b\[[7;]*m/\<b\>\<u\>/g' \
 | sed 's/\x1b\[[27;]*m/\<\/u\>\<\/b\>/g' \
 | tail -n +2 \

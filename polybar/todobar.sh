@@ -16,14 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-NUM="$(todo -n | head -1 | awk '{print $3}')"
-TASK="$(todo -n | grep Today | head -1 | cut -c5-)"
-if [ ! -z "$TASK" ];then
+NUM="$(todo -n|head -1|awk '{print $3}')"
+TASK="$(todo -n|grep Today|head -1|cut -c5-)"
+if [ -n "$TASK" ];then
 	echo "Todo [$NUM]: $TASK"
 	exit
 fi
-TASK="$(todo -n | grep Tomorrow | head -1 | cut -c5-)"
-if [ ! -z "$TASK" ];then
+TASK="$(todo -n|grep Tomorrow|head -1|cut -c5-)"
+if [ -n "$TASK" ];then
 	echo "Todo [$NUM]: $TASK"
 	exit
 fi

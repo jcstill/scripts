@@ -16,15 +16,14 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-MOUSE="$(upower -d | sed -n 9p | awk '{print $1}')"
-PRESENT="$(upower -d | sed -n 10p | awk '{print $2}')"
-PERCENT="$(upower -d | sed -n 15p | awk '{print $2}')"
+MOUSE="$(upower -d|sed -n 9p|awk '{print $1}')"
+PRESENT="$(upower -d|sed -n 10p|awk '{print $2}')"
+PERCENT="$(upower -d|sed -n 15p|awk '{print $2}')"
 if [ "$MOUSE" == "mouse" ] && [ "$PRESENT" == "yes" ];then
 	echo "Mouse: $PERCENT"
 else
 	echo "Mouse: N/A"
 fi
-
 
 
 

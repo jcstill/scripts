@@ -21,12 +21,12 @@ if [ "$1" == "-h" ] || [ "$1" == "--help" ];then
 	exit 1
 elif [ "$1" != "" ]; then
 	if grep -P "(([1-9]\d{0,2})\.){3}(?2)" <<< "$1"; then
-		curl -s https://ipinfo.io/"$1" | sed 's/\"//g'
+		curl -s https://ipinfo.io/"$1"|sed 's/\"//g'
 	else
-		ip=($(host "$1" | awk '/address/ { print $NF }'))
-		curl -s https://ipinfo.io/${ip[0]} | sed 's/\"//g'
+		ip=($(host "$1"|awk '/address/ { print $NF }'))
+		curl -s https://ipinfo.io/"${ip[0]}"|sed 's/\"//g'
 	fi
 else
-	curl -s https://ipinfo.io/ | sed 's/\"//g'
+	curl -s https://ipinfo.io/|sed 's/\"//g'
 fi
 echo

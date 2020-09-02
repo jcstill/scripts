@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-S="$(printf "Lock\nLogout\nSleep\nHibernate\nReboot\nShutdown\n" | rofi -lines 6 -width 20 -dmenu -line-padding 5 -i -p 'System' -click-to-exit)"
+S="$(printf "Lock\nLogout\nSleep\nHibernate\nReboot\nShutdown\n"|rofi -lines 6 -width 20 -dmenu -line-padding 5 -i -p 'System' -click-to-exit)"
 case "$S" in
 	"Lock"|"lock"|"L"|"l")
 		#echo "$S"

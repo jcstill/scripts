@@ -16,10 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-ENABLED="$(cat /proc/acpi/wakeup | grep XHC | cut -f3 | cut -d " " -f1)"
+ENABLED="$(grep XHC</proc/acpi/wakeup|cut -f3|cut -d " " -f1)"
 if [ "$ENABLED" == "*enabled"  ]; then
 	sudo su -c "echo XHC > /proc/acpi/wakeup"
-        echo Disabling HID wake from sleep.
+		echo Disabling HID wake from sleep.
 else
 	echo HID wake from sleep already disabled.
 fi
