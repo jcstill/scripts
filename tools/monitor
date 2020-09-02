@@ -192,15 +192,20 @@ elif [ "$1" == "--brightness" ] || [ "$1" == "-b" ];then
 	if [ -n "${2##*[!0-9]*}" ] && [ -n "$3" ];then
 		if [ "$2" -lt "$OUTPUTNUM" ];then
 			t=$(($2 + 1))
-			if [ "$(xrandr|grep $TYPE-$2|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
-				sudo ddcutil -d $t setvcp 10 $3
-				sudo ddcutil -d $t setvcp 12 $3
+			if [ "$(xrandr|grep "$TYPE-$2"|head -$t|tail -1|awk '{print $2}')" == "connected" ];then
+				ddcutil -d $t setvcp 12 "$3" --sleep-multiplier 0.05
+				ddcutil -d $t setvcp 10 "$3" --sleep-multiplier 0.05
 			else
 				printf "%s is off\n" "$2"
 			fi
 		elif [ "$2" -ge "$OUTPUTNUM" ];then
 			printf "%s not a valid display\n" "$2"
 		fi
+	elif [[ ( "$2" == "a" || "$2" == "all" || "$2" == "-a" || "$2" == "--all" ) && -n "$3" ]];then
+		for ((i=1; i<=OUTPUTNUM; ++i));do
+			ddcutil -d $i setvcp 12 "$3" --sleep-multiplier 0.05 2>/dev/null
+			ddcutil -d $i setvcp 10 "$3" --sleep-multiplier 0.05 2>/dev/null
+		done
 	else
 		usage
 	fi
