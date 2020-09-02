@@ -16,149 +16,443 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-usage() {
-	printf "usage: audiosink [OPTION] [arguments...]\n\n"
-	printf "Options:\n"
-	printf "  volup,voldn                   Turn volume up/down by 2% on the default sink\n"
-	printf "  vol <PERCENT>                 Set the volume to PERCENT\n"
-	printf "  current                       Show the current sink\n"
-	printf "  listall,list                  Show all avaliable sinks\n"
+CONFIGFILE="$HOME/.config/audiosink/config"
+version(){
+	printf "audiosink v1.0 Copyright (C) 2020 Jacob Still\n"
+	printf "License GPLv3: GNU GPL version 3 or later <https://www.gnu.org/licenses/>\n"
+	printf "This is free software, and you are welcome to redistribute it under\n"
+	printf "certain conditions. This program comes with ABSOLUTELY NO WARRANTY\n"
+	exit
+}
+usage(){
+	printf "Usage:\n"
+	printf "  audiosink [OPTION] [arguments...]\n\n"
+	printf "Player Options:\n"
+	printf "  volup,voldn                   Turn volume up/down by 2%% on the default sink\n"
+	printf "  (vol)ume <PERCENT>            Set the volume to PERCENT or add/subtract to the current vol\n"
+	printf "  (mute)toggle                  Toggle mute\n"
+	printf "  play,pause,play-pause,stop    Media Control\n"
+	printf "  next,previous                 Media Control\n\n"
+	printf "Sink Options:\n"
+	printf "  (cur)rent                     Show the current sink\n"
+	printf "  (l)istall,list                Show all avaliable sinks\n"
 	printf "  <SINKNAME>                    Change the default sink and move active streams to SINKNAME\n\n"
+	printf "Other Options:\n"
+	printf "  lock,unlock <SECONDS>         Tell audiosink that the computer is being locked/unlocked (basically wrapper for off/on)\n"
+	printf "  off,on <SECONDS>              Tell audiosink to turn on/off active speakers in (optional) SECONDS\n"
+	printf "  help                          Show this text\n"
+	printf "  (v)erbose                     Verbose output\n"
+	printf "  version                       Version/Copyright\n\n"
 	printf "Examples:\n"
 	printf "  audiosink internal            - Set the currnet sink to \"internal\"\n"
 	exit
 }
+sourceconfig(){
+	# shellcheck source=/dev/null
+	source "$CONFIGFILE"
+}
+writeconfig(){
+	sourceconfig
+	if [ -n "$VERBOSE" ];then
+		printf "writing to file: %s to %s\n" "$1" "$2"
+	fi
+	sed -i "$(grep -n "$1"<"$CONFIGFILE"|cut -c1|head -1)s/.*/$1=$2/" "$CONFIGFILE"
+}
 
-if [ -z "$1" ] || [ "$1" == "-h" ] || [ "$1" == "--help" ];then
-	usage
-elif [ "$1" == "volup" ] || [ "$1" == "voldn" ] || [ "$1" == "vol" ];then
-	CURVOL="$(amixer -c 1 -M -D pulse get Master|tail -1|awk '{print $5;}'|cut -c 2-|rev|cut -c 3-|rev )" # have to use "rev" since volume percent character length changes
-	if [ "$1" == "volup" ]; then
-		if [ "$CURVOL" -lt "100" ]; then
-			pactl set-sink-volume @DEFAULT_SINK@ +2%
+volume(){
+	sourceconfig
+	CURVOL="$(amixer -c 1 -M -D pulse get Master|tail -1|awk '{print $5;}'|cut -c 2-|rev|cut -c 3-|rev)" # have to use "rev" since volume percent character length changes
+	case $1 in
+		up)
+			if [ "$CURVOL" -lt "100" ];then
+				if [ -n "$VERBOSE" ];then
+					printf "icreasing volume\n"
+				fi
+				pactl set-sink-volume @DEFAULT_SINK@ +2%
+			fi;;
+		dn)
+			if [ "$CURVOL" -gt "0" ];then
+				if [ -n "$VERBOSE" ];then
+					printf "decreasing volume\n"
+				fi
+				pactl set-sink-volume @DEFAULT_SINK@ -2%
+			fi;;
+		mu)
+			if [ -n "$VERBOSE" ];then
+				printf "muting\n"
+			fi
+			pactl set-sink-mute @DEFAULT_SINK@ toggle;;
+		''|*[!0-9]*) printf "%s: Not a number\n" "$1";;
+		*)
+			if [ -n "$VERBOSE" ];then
+				printf "setting volume to %s\n" "$1"
+			fi
+			pactl set-sink-volume @DEFAULT_SINK@ "$1"%;;
+	esac
+}
+medctl(){
+	sourceconfig
+	if [ -n "$VERBOSE" ];then
+		printf "%s-ing audio\n" "$1"
+	fi
+	playerctl "$1"
+	sleep 0.5
+	if [ "$(playerctl status)" == "Playing" ];then
+		writeconfig AUDIO 1
+	else
+		writeconfig AUDIO 0
+	fi
+}
+on(){
+	sourceconfig
+	if [ "$ON" == "0" ];then
+		if [ -n "$1" ];then
+			sleep "$1"
 		fi
-	elif [ "$1" == "voldn" ]; then
-		if [ "$CURVOL" -gt "0" ]; then
-			pactl set-sink-volume @DEFAULT_SINK@ -2%
+		if [ -n "$USB" ] && [ ! -w "$USB" ];then
+			printf "You need to have write permission to %s!\n" "$USB"
+			sudo chmod 666 "$USB"
 		fi
-	elif [ "$1" == "vol" ];then
-		pactl set-sink-volume @DEFAULT_SINK@ $2%
-	fi
-	exit
-fi
-
-# Find all the sink data
-INTERNAL="$(pacmd list-sinks|grep name:|grep alsa_output.pci-0000_00_1f.3.analog-stereo|awk '{print $2;}'|sed 's|[<>,]||g')"
-K3="$(pacmd list-sinks|grep name:|grep alsa_output.usb-FiiO_K3-00.analog-stereo|awk '{print $2;}'|sed 's|[<>,]||g')"
-KVM="$(pacmd list-sinks|grep name:|grep alsa_output.usb-VIA_Technologies_Inc._USB_Audio_Device-00.iec958-stereo|awk '{print $2;}'|sed 's|[<>,]||g')"
-HDMITV="$(pacmd list-sinks|grep name:|grep alsa_output.pci-0000_01_00.1.hdmi-stereo-extra2|awk '{print $2;}'|sed 's|[<>,]||g')"
-HDMIPC="$(pacmd list-sinks|grep name:|grep alsa_output.pci-0000_01_00.1.hdmi-stereo-extra4|awk '{print $2;}'|sed 's|[<>,]||g')"
-CURRENT="$(pacmd list-sinks|grep 'index:\|name:'|grep '*' -A 1|tail -1|awk '{print $2;}'|sed 's|[<>,]||g')"
-
-if [ "$1" == "current" ]; then
-	printf "$CURRENT\n"
-	exit 0
-elif [ "$1" == "listall" ] || [ "$1" == "list" ]; then
-	printf " k3       - $K3\n"
-	printf " internal - $INTERNAL\n"
-	printf " kvm      - $KVM\n"
-	printf " hdmi     - "
-	if [ -n "$HDMITV" ] && [ "$HDMITV" != "" ]; then
-		printf "$HDMITV\n"
-	elif [ -n "$HDMIPC" ] && [ "$HDMIPC" != "" ]; then
-		printf "$HDMIPC\n"
-	fi
-	exit 0
-fi
-
-# Code to handle USB relay for speakers' power
-if [ ! -f ~/.config/audiosink/config ];then
-	printf " " > ~/.config/audiosink/config
-fi
-TTYUSB="$(cat ~/.config/audiosink/config|grep USB|cut -c5-)"
-if [ -z "$TTYUSB" ];then
-	TTYUSB="$(dmesg|grep ch341-uart|grep "attached\|disconnected"|tail -1|grep attached|rev|awk '{print $1 "/ved/"}'|rev)"
-	if [ ! -z "$TTYUSB" ];then
-		printf "# This file is auto generated by audiosink\nUSB=$TTYUSB\n" > ~/.config/audiosink/config
+		if [ -n "$VERBOSE" ];then
+			printf "turnning on relay\n"
+		fi
+		printf "1" > "$USB" 2> /dev/null
+		writeconfig ON 1
 	else
-		printf "relay device not found\n"
+		if [ -n "$VERBOSE" ];then
+			printf "relay already on\n"
+		fi
 	fi
-fi
-
-# Set default sink accordingly
-if [ "$1" == "k3" ]; then
-	if [ ! -z "$TTYUSB" ];then
-		printf "0" > $TTYUSB
-	fi
-	if [ -z "$K3" ]; then
-		printf "$K3 not found\n"
-		printf "Setting to internal\n"
-		pactl set-default-sink $INTERNAL
+}
+off(){
+	sourceconfig
+	if [ "$ON" == "1" ];then
+		if [ -n "$1" ];then
+			sleep "$1"
+		fi
+		if [ -n "$USB" ] && [ ! -w "$USB" ];then
+			printf "You need to have write permission to %s!\n" "$USB"
+			sudo chmod 666 "$USB"
+		fi
+		if [ -n "$VERBOSE" ];then
+			printf "turnning off relay\n"
+		fi
+		printf "0" > "$USB" 2> /dev/null
+		writeconfig ON 0
 	else
-		printf "Setting to K3\n"
-		pactl set-default-sink $K3
+		if [ -n "$VERBOSE" ];then
+			printf "relay already off\n"
+		fi
 	fi
-elif [ "$1" == "kvm" ]; then
-	if [ ! -z "$TTYUSB" ];then
-		printf "0" > $TTYUSB
+}
+lock(){
+	sourceconfig
+	if [ -n "$VERBOSE" ];then
+		printf "locking\n"
 	fi
-	if [ -z "$KVM" ]; then
-		printf "$KVM not found\n"
-		printf "Setting to internal\n"
-		pactl set-default-sink $INTERNAL
+	if [ "$(playerctl status)" == "Playing" ];then
+		if [ -n "$VERBOSE" ];then
+			printf "stopping audio\n"
+		fi
+		playerctl stop
+		writeconfig AUDIO 1
 	else
-		printf "Setting to KVM\n"
-		pactl set-default-sink $KVM
+		writeconfig AUDIO 0
 	fi
-elif [ "$1" == "hdmi" ]; then
-	if [ ! -z "$TTYUSB" ];then
-		printf "0" > $TTYUSB
+	if [ "$ON" == "1" ];then
+		off "$1"
+		writeconfig ON 1
 	fi
-	if [ -n "$HDMITV" ] && [ "$HDMITV" != "" ]; then
-		printf "Setting to TV HDMI\n"
-		pactl set-default-sink $HDMITV
-	elif [ -n "$HDMIPC" ] && [ "$HDMIPC" != "" ]; then
-		printf "Setting to PC HDMI\n"
-		pactl set-default-sink $HDMIPC
+	writeconfig LOCK 1
+}
+unlock(){
+	sourceconfig
+	#!TODO: fix this
+	if [ -n "$VERBOSE" ];then
+		printf "unlocking\n"
+	fi
+	writeconfig LOCK 0
+	if [ "$ON" == "1" ];then
+		writeconfig ON 0
+		on "$1"
+	fi
+	if [ "$AUDIO" == "1" ];then
+		if [ -n "$VERBOSE" ];then
+			printf "playing audio\n"
+		fi
+		playerctl play
+	fi
+}
+current(){
+	sourceconfig
+	if [ -n "$VERBOSE" ];then 
+		printf "%s\n" "$(pacmd list-sinks|grep 'index:\|name:'|grep -F '*' -A 1|tail -1|awk '{print $2;}'|sed 's|[<>,]||g')"
 	else
-		printf "No HDMI found\n"
-		printf "Setting to internal\n"
-		pactl set-default-sink $INTERNAL
+		printf "%s\n" "${SINK,,}"
 	fi
-elif [ "$1" == "internal" ] || [ "$1" == "maudio" ] || [ "$1" == "bigred" ]; then
-	if [ ! -z "$TTYUSB" ] && [ ! -w $TTYUSB ];then
-		printf "You need to have write permission to $TTYUSB!\n"
-		sudo chmod 666 $TTYUSB
+}
+sinkdata(){
+	sourceconfig
+	# Find all the sink data
+	if [ -n "$VERBOSE" ];then
+		printf "getting sink data\n"
 	fi
-	printf "Setting to INTERNAL\n"
-	screen -d -m -S relay $TTYUSB
-	sleep 1
-	screen -X -S "relay" quit
-	sleep 1
-	printf "1" > $TTYUSB
-	sleep 3
-	pactl set-default-sink $INTERNAL
-	pactl set-sink-volume @DEFAULT_SINK@ 50%
-else
-	printf "$1 not a valid sink\n\n"
-	usage
-fi
-
-# Move active audio streams
-if [ -z "$2" ]; then
-	pactl list short sink-inputs|while read stream; do
-		SID=$(echo $stream|cut '-d ' -f1)
-		NUMBER="$(echo $SID|awk '{print $1}')"
-		NAME="$(pactl list sink-inputs|grep "Sink Input\|application.name"|tr '\n\r#"' ' '|awk '{print $3 ": " $6}'|grep $NUMBER)"
-		printf "moving $NAME\n"
+	INTERNAL="$(pacmd list-sinks|grep name:|grep alsa_output.pci-0000_00_1f.3.analog-stereo|awk '{print $2;}'|sed 's|[<>,]||g')"
+	K3="$(pacmd list-sinks|grep name:|grep alsa_output.usb-FiiO_K3-00.analog-stereo|awk '{print $2;}'|sed 's|[<>,]||g')"
+	MODI="$(pacmd list-sinks|grep name:|grep alsa_output.usb-Schiit_Audio_Schiit_Modi_3-00.analog-stereo|awk '{print $2;}'|sed 's|[<>,]||g')"
+	HDMITV="$(pacmd list-sinks|grep name:|grep alsa_output.pci-0000_01_00.1.hdmi-stereo-extra2|awk '{print $2;}'|sed 's|[<>,]||g')"
+	HDMIPC="$(pacmd list-sinks|grep name:|grep alsa_output.pci-0000_01_00.1.hdmi-stereo-extra4|awk '{print $2;}'|sed 's|[<>,]||g')"
+}
+list(){
+	sourceconfig
+	# Show sinks
+	# !TODO: Make this dynamicly set in $CONFIGFILE
+	if [ -n "$VERBOSE" ];then 
+		printf " k3       - %s\n" "$K3"
+		printf " modi     - %s\n" "$MODI"
+		printf " internal - %s\n" "$INTERNAL"
+		printf " hdmi     - "
+		if [ -n "$HDMITV" ] && [ "$HDMITV" != "" ];then
+			printf "%s\n" "$HDMITV"
+		elif [ -n "$HDMIPC" ] && [ "$HDMIPC" != "" ];then
+			printf "%s\n" "$HDMIPC"
+		fi
+	else
+		printf "k3\n"
+		printf "modi\n"
+		printf "internal\n"
+		printf "hdmi\n"
+	fi
+}
+sink(){
+	sourceconfig
+	# Set default sink accordingly
+	# !TODO: Make this dynamic based on params in $CONFIGFILE
+	if [ "$1" == "k3" ] || [ "$1" == "maudio" ] || [ "$1" == "bigred" ];then
+		if [ "$SINK" != "K3" ];then
+			if [ -n "$USB" ] && [ ! -w "$USB" ];then
+				printf "You need to have write permission to %s!\n" "$USB"
+				sudo chmod 666 "$USB"
+			fi
+			if [ -z "$K3" ];then
+				if [ -n "$VERBOSE" ];then
+					printf "%s not found\n" "$K3"
+					printf "setting to internal\n"
+				fi
+				pactl set-default-sink "$INTERNAL"
+				writeconfig SINK INTERNAL
+			else
+				if [ -n "$VERBOSE" ];then
+					printf "setting to k3\n"
+				fi
+				if [ "$(playerctl status)" == "Playing" ];then
+					playerctl stop
+					writeconfig AUDIO 1
+				else
+					writeconfig AUDIO 0
+				fi
+				screen -d -m -S relay "$USB"
+				sleep 0.5
+				screen -X -S "relay" quit
+				sleep 0.5
+				printf "1" > "$USB" 2> /dev/null
+				sleep 2
+				pactl set-default-sink "$K3"
+				if [ "$AUDIO" == "1" ];then
+					playerctl play
+				fi
+				writeconfig SINK K3
+				writeconfig ON 1
+			fi
+		fi
+	elif [ "$1" == "modi" ] || [ "$1" == "schiit" ] || [ "$1" == "shit" ];then
+		if [ "$SINK" != "MODI" ];then
+			if [ -n "$USB" ] && [ -w "$USB" ];then
+				printf "0" > "$USB" 2> /dev/null
+				writeconfig ON 0
+			else
+				printf "You need to have write permission to %s!\n" "$USB"
+				sudo chmod 666 "$USB"
+			fi
+			if [ -z "$K3" ];then
+				if [ -n "$VERBOSE" ];then
+					printf "%s not found\n" "$MODI"
+					printf "setting to internal\n"
+				fi
+				pactl set-default-sink "$INTERNAL"
+			else
+				if [ -n "$VERBOSE" ];then
+					printf "setting to modi\n"
+				fi
+				pactl set-default-sink "$MODI"
+			fi
+			writeconfig SINK MODI
+		fi
+	elif [ "$1" == "hdmi" ];then
+		if [ "$SINK" != "HDMI" ];then
+			if [ -n "$USB" ] && [ -w "$USB" ];then
+				printf "0" > "$USB" 2> /dev/null
+				writeconfig ON 0
+			else
+				printf "You need to have write permission to %s!\n" "$USB"
+				sudo chmod 666 "$USB"
+			fi
+			if [ -n "$HDMITV" ] && [ "$HDMITV" != "" ];then
+				if [ -n "$VERBOSE" ];then
+					printf "setting to tv hdmi\n"
+				fi
+				pactl set-default-sink "$HDMITV"
+			elif [ -n "$HDMIPC" ] && [ "$HDMIPC" != "" ];then
+				if [ -n "$VERBOSE" ];then
+					printf "setting to pc hdmi\n"
+				fi
+				pactl set-default-sink "$HDMIPC"
+			else
+				if [ -n "$VERBOSE" ];then
+					printf "no hdmi found\n"
+					printf "setting to internal\n"
+				fi
+				pactl set-default-sink "$INTERNAL"
+			fi
+			writeconfig SINK HDMI
+		fi
+	elif [ "$1" == "internal" ];then
+		if [ "$SINK" != "INTERNAL" ];then
+			if [ -n "$USB" ] && [ -w "$USB" ];then
+				printf "0" > "$USB" 2> /dev/null
+				writeconfig ON 0
+			else
+				printf "You need to have write permission to %s!\n" "$USB"
+				sudo chmod 666 "$USB"
+			fi
+			if [ -n "$VERBOSE" ];then
+				printf "setting to internal\n"
+			fi
+			pactl set-default-sink "$INTERNAL"
+			writeconfig SINK INTERNAL
+		fi
+	else
+		printf "%s is not a valid sink\naudiosink --help for usage\n" "$1"
+		exit
+	fi
+}
+movestreams(){
+	sourceconfig
+	# Move active audio streams
+	pactl list short sink-inputs|while read -r stream; do
+		SID=$(echo "$stream"|cut '-d ' -f1)
+		NUMBER="$(echo "$SID"|awk '{print $1}')"
+		NAME="$(pactl list sink-inputs|grep "Sink Input\|application.name"|tr '\n\r#"' ' '|awk '{print $3 ": " $6}'|grep "$NUMBER")"
+		if [ -n "$VERBOSE" ];then
+			printf "moving %s\n" "${NAME,,}"
+		fi
 		pactl move-sink-input "$SID" "@DEFAULT_SINK@"
 	done
+}
+
+#Check for verbosy-ness or usage
+for i in "$@";do
+	if [ "$i" == "-v" ] || [ "$i" == "--v" ] || [ "$i" == "v" ] || [ "$i" == "-verbose" ] || [ "$i" == "--verbose" ] || [ "$i" == "verbose" ];then
+		VERBOSE=1
+	fi
+	if [ "$i" == "-h" ] || [ "$i" == "--h" ] || [ "$i" == "h" ] || [ "$i" == "-help" ] || [ "$i" == "--help" ] || [ "$i" == "help" ];then
+		usage
+	fi
+done
+# Check config file
+if [ ! -f "$CONFIGFILE" ];then
+	if [ -n "$VERBOSE" ];then
+		printf "no config. writing one at %s\n" "$CONFIGFILE"
+	fi
+	printf "# This file is auto generated by audiosink\nUSB=\nAUDIO=\nSINK=\nLOCK=\nON=\n" > "$CONFIGFILE"
+fi
+if [ -n "$VERBOSE" ];then
+	printf "sourcing config file\n"
+fi
+# shellcheck source=/dev/null
+source "$CONFIGFILE"
+# Code to handle USB relay for speakers' power
+if [ -n "$VERBOSE" ];then
+	printf "handling usb relay for speakers\n"
+fi
+if [ -z "$USB" ];then
+	if [ -n "$VERBOSE" ];then
+		printf "no usb relay found. searching...\n"
+	fi
+	USB="$(dmesg|grep ch341-uart|grep "attached\|disconnected"|tail -1|grep attached|rev|awk '{print $1 "/ved/"}'|rev)"
+	if [ -n "$USB" ];then
+		writeconfig USB "$USB"
+	else
+		writeconfig USB "$USB"
+		printf "relay device not found. manually enter it in %s\n" "$CONFIGFILE"
+	fi
 fi
 
-
-# Test code to show name of audio stream's application
-#	pactl list sink-inputs|grep "Sink Input\|application.name"|tr '\n\r#"' ' '|awk '{print $3 ": " $6}'|while read stream;do
-#		SID="$(echo $stream|awk '{print $1}'|tr -d ':')"
-#		echo "moving stream $stream"
-#		pactl move-sink-input "$SID" "@DEFAULT_SINK@"
-#	done
+# Parse Args
+while [ $# -gt 0 ];do
+	case "$1" in
+		-v|--v|v|-verbose|--verbose|verbose)
+			;;
+		-V|--V|V|-version|--version|version)
+			version;;
+		-volup|--volup|volup)
+			volume up;;
+		-voldn|--voldn|voldn)
+			volume dn;;
+		-vol|--vol|vol|-volume|--volume|volume)
+			volume "$2"
+			shift;;
+		-mute|--mute|mute|-mutetoggle|--mutetoggle|mutetoggle)
+			volume mu;;
+		-play|--play|play)
+			medctl play;;
+		-pause|--pause|pause)
+			medctl pause;;
+		-play-pause|--play-pause|play-pause)
+			medctl play-pause;;
+		-stop|--stop|stop)
+			medctl stop;;
+		-next|--next|next)
+			medctl next;;
+		-previous|--previous|previous|-last|--last|last)
+			medctl previous;;
+		-lock|--lock|lock)
+			case $2 in
+				''|*[!0-9]*) lock;;
+				*) lock "$2";shift;;
+			esac
+			exit;;
+		-unlock|--unlock|unlock)
+			case $2 in
+				''|*[!0-9]*) unlock;;
+				*) unlock "$2";shift;;
+			esac
+			exit;;
+		-off|--off|off)
+			case $2 in
+				''|*[!0-9]*) off;;
+				*) off "$2";shift;;
+			esac
+			exit;;
+		-on|--on|on)
+			case $2 in
+				''|*[!0-9]*) on;;
+				*) on "$2";shift;;
+			esac
+			exit;;
+		-current|--current|current|-cur|--cur|cur)
+			current
+			exit;;
+		-listall|--listall|listall|-list|--list|list|-l|--l|l|-ls|--ls|ls)
+			sinkdata
+			list
+			exit;;
+		* )
+			sinkdata
+			sink "$1"
+			movestreams
+			break;;
+	esac
+	shift
+done
+exit

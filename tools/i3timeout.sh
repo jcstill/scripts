@@ -16,32 +16,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
-# Pause media
-if [ "$(playerctl status)" == "Playing" ];then
-	playerctl stop
-	echo 1 > ~/.config/i3lock-modified/config
-else
-	echo 0 > ~/.config/i3lock-modified/config
-fi
+# Speaker timeout in minutes
+T=2
 
-# Turn off speakers after a time
-#CURRENT="$(pacmd list-sinks | grep 'index:\|name:' | grep '*' -A 1 | tail -1 | awk '{print $2;}' | sed 's|[<>,]||g')"
-#echo "$CURRENT"
-#if [ "$CURRENT" == "alsa_output.pci-0000_00_1f.3.analog-stereo" ];then
-#	echo "audiosink off"
-#fi
-#exit
+# Media control
+audiosink lock $((T*60)) &
+TIMEPID=$!
 
 # Enable Screen Timeout
 xset s default
 xset s 10
+
 # Lock the screen
 ~/.config/i3lock-modified/lock.sh
+
 # Disable Screen Timeout
 xset -dpms
 xset s noblank
 xset s off
-# If media was playing before locking, play agian
-if [ "$(cat ~/.config/i3lock-modified/config)" == "1" ];then
-	playerctl play
-fi
+
+# Media control
+kill $TIMEPID > /dev/null 2>&1
+wait $! 2>/dev/null
+sleep 1
+audiosink unlock
