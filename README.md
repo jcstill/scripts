@@ -4,7 +4,7 @@ Some bash scripts to make my life easier. The tools I would expect to be helpful
 ### tools
 command | functions
 -|-
-audiosink | Control volume, switch audio sink and move existing streams
+audiosink | Switch the default audio sink and move existing streams to new sink
 calc | Calculator based originaly on the example from the arch wiki
 crypt | Easy way to quickly encrypt or decrypt files
 ec | Intercept a non-zero return code of the last program run
@@ -17,6 +17,7 @@ macgen | Generate a random mac address while not being multicast or broadcast ad
 monitor | Combination of all the individual scripts I had to deal with displays
 mousewake | Disable Mouse/Keyboard Wakeups from suspend
 net-rec | Reset nmcli to dhcp and request address from dhcp server
+pdftool | Tool to modify PDFs (basically a gs wrapper)
 transfer | Upload a file to transfer.sh
 
 ### Scripts Used by my Polybar setup:
@@ -28,6 +29,6 @@ date.sh | Show today's date
 mem.sh | Show current memory usage in GB
 mousepower.sh | Show wireless mouse battery as a percent
 powermenu.sh | Show power menu using rofi
-systemp.sh | Show CPU (and GPU if too high) temp as a percent
+systemp.sh | Show CPU and/or GPU temp
 time.sh | Show current time
 todobar.sh | Show remaining tasks from todo.py
