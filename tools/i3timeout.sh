@@ -17,7 +17,7 @@
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
 # Speaker timeout in minutes
-T=2
+T=10
 
 # Media control
 audiosink lock $((T*60)) &
