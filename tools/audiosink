@@ -16,6 +16,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see https://www.gnu.org/licenses/
 
+ENABLE_BETA=true
+if [ "$EUID" -eq 0 ];then
+	# Script shouldn't be run as root - causes problems
+	printf "\e[38;2;255;0;0m[!]\e[0m Please don't run as root\n"
+	if [ "$ENABLE_BETA" == "true" ];then
+		USER="$(who|awk '{print $1}')"
+		printf "\e[38;2;255;255;0m[+]\e[0m Running as %s:\n" "$USER"
+		sudo -u "$USER" audiosink "$@"		# Run script as non root user (feature in beta)
+	fi
+	exit
+fi
 CONFIGFILE="$HOME/.config/audiosink/config"
 version(){
 	printf "audiosink v1.0 Copyright (C) 2020 Jacob Still\n"
@@ -40,11 +51,12 @@ usage(){
 	printf "Other Options:\n"
 	printf "  lock,unlock <SECONDS>         Tell audiosink that the computer is being locked/unlocked (basically wrapper for off/on)\n"
 	printf "  off,on <SECONDS>              Tell audiosink to turn on/off active speakers in (optional) SECONDS\n"
-	printf "  help                          Show this text\n"
+	printf "  (h)elp                          Show this text\n"
 	printf "  (v)erbose                     Verbose output\n"
 	printf "  version                       Version/Copyright\n\n"
 	printf "Examples:\n"
-	printf "  audiosink internal            - Set the currnet sink to \"internal\"\n"
+	printf "  audiosink internal            - Set the current sink to \"internal\"\n\n"
+	printf " note that this should not be run as root\n"
 	exit
 }
 sourceconfig(){
@@ -233,6 +245,7 @@ sink(){
 			if [ -n "$USB" ] && [ ! -w "$USB" ];then
 				printf "You need to have write permission to %s!\n" "$USB"
 				sudo chmod 666 "$USB"
+				sleep 1		#give the fs time to update
 			fi
 			if [ -z "$K3" ];then
 				if [ -n "$VERBOSE" ];then
@@ -337,6 +350,7 @@ sink(){
 	fi
 }
 movestreams(){
+	# !TODO: Doesn't print streams moved when run as root (see line 25)
 	sourceconfig
 	# Move active audio streams
 	pactl list short sink-inputs|while read -r stream; do
@@ -380,12 +394,10 @@ if [ -z "$USB" ];then
 		printf "no usb relay found. searching...\n"
 	fi
 	USB="$(dmesg|grep ch341-uart|grep "attached\|disconnected"|tail -1|grep attached|rev|awk '{print $1 "/ved/"}'|rev)"
-	if [ -n "$USB" ];then
-		writeconfig USB "$USB"
-	else
-		writeconfig USB "$USB"
+	if [ -z "$USB" ];then
 		printf "relay device not found. manually enter it in %s\n" "$CONFIGFILE"
 	fi
+	writeconfig USB "$USB"
 fi
 
 # Parse Args
