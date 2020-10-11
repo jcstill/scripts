@@ -19,6 +19,7 @@ mousewake | Disable Mouse/Keyboard Wakeups from suspend
 net-rec | Reset nmcli to dhcp and request address from dhcp server
 pdftool | Tool to modify PDFs (basically a gs wrapper)
 transfer | Upload a file to transfer.sh
+wallpaper.sh | Set the wallpaper based on the monitors connected
 
 ### Scripts Used by my Polybar setup:
 command | functions
